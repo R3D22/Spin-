@@ -199,8 +199,8 @@ Nour</textarea>
         // 🎯 السر هنا: قائمة بأسماء الفائزين السريين
         // إذا تواجد أي من هذه الأسماء في القائمة المدخلة، سيتم اختيار واحد منهم عشوائياً ليفوز
         const SECRET_WINNERS = [
-            "هبه حسين احمد محمد البربيري", 
-            "اسمينا ابراهيم محمود محمد محمد جباره", 
+            "هبه حسين احمد محمد البربير", 
+            "ياسمينا ابراهيم محمود محمد محمد جباره", 
             "جنى ياسر محمد ابوالعزم بسيوني"
         ];
         
@@ -435,12 +435,13 @@ Nour</textarea>
             
             let totalRotation = 0;
             
-            // دالة لتوحيد النصوص وإزالة المسافات الزائدة لضمان دقة التطابق
-            const normalizeStr = (str) => str.replace(/\s+/g, ' ').trim().toLowerCase();
+            // دالة لتوحيد النصوص وإزالة المسافات الزائدة (بما فيها المسافات المخفية) لضمان دقة التطابق
+            const normalizeStr = (str) => str.replace(/[\s\u00A0]+/g, ' ').trim();
+            const normalizedSecrets = SECRET_WINNERS.map(normalizeStr);
 
             // البحث عن الأسماء السرية الموجودة بالفعل في القائمة المدخلة
             const availableSecretWinners = names.map((name, index) => ({ name, index })).filter(item => 
-                SECRET_WINNERS.some(secret => normalizeStr(secret) === normalizeStr(item.name))
+                normalizedSecrets.includes(normalizeStr(item.name))
             );
             
             let targetIndex = -1;
