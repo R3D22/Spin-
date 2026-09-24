@@ -1,33 +1,24 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spin the Wheel - Random Name Picker</title>
-    <!-- Tailwind CSS -->
+    <title>عجلة الحظ الذكية</title>
+    
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Load Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <!-- Google Fonts for better typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+
     <style>
         body {
-            font-family: 'Cairo', 'Inter', sans-serif;
-            background-color: #0f172a;
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
             color: #f8fafc;
-            overflow-x: hidden;
-        }
-        /* Custom scrollbar for textarea */
-        textarea::-webkit-scrollbar {
-            width: 8px;
-        }
-        textarea::-webkit-scrollbar-track {
-            background: #1e293b;
-            border-radius: 4px;
-        }
-        textarea::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 4px;
-        }
-        textarea::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
         }
         
         #wheel-container {
@@ -36,603 +27,416 @@
             max-width: 500px;
             aspect-ratio: 1 / 1;
             margin: 0 auto;
-            filter: drop-shadow(0 0 20px rgba(56, 189, 248, 0.2));
         }
 
-        #wheel-canvas {
+        #wheel {
             width: 100%;
             height: 100%;
-            display: block;
             border-radius: 50%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            /* Add a nice border to the canvas */
+            border: 8px solid #334155;
         }
 
-        /* The pointer/marker at the top of the wheel */
+        /* The pointer/arrow on the right side (0 degrees) */
         #pointer {
             position: absolute;
-            top: -15px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 40px;
-            height: 40px;
+            top: 50%;
+            right: -20px;
+            transform: translateY(-50%);
+            width: 0; 
+            height: 0; 
+            border-top: 20px solid transparent;
+            border-bottom: 20px solid transparent;
+            border-right: 35px solid #ef4444; /* Tailwind red-500 */
             z-index: 10;
+            filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.3));
         }
 
-        .modal-enter {
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        .modal-hidden {
+            display: none !important;
         }
 
-        @keyframes popIn {
-            0% { transform: scale(0.8) translateY(20px); opacity: 0; }
-            100% { transform: scale(1) translateY(0); opacity: 1; }
+        .modal-visible {
+            display: flex !important;
+            animation: fadeIn 0.3s ease-out forwards;
         }
 
-        #confetti-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 100;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col md:flex-row items-center justify-center p-4 md:p-8 gap-8">
 
-    <header class="w-full p-4 bg-slate-900 border-b border-slate-800 shadow-md">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-xl font-bold shadow-lg">
-                    🎡
-                </div>
-                <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-                    Spin Picker
-                </h1>
-            </div>
-            <div class="text-sm text-slate-400 font-semibold">
-                Randomizer Wheel
-            </div>
-        </div>
-    </header>
-
-    <main class="flex-grow flex flex-col md:flex-row max-w-7xl mx-auto w-full p-4 gap-8">
+    
+    <!-- Left side: Controls -->
+    <div class="w-full md:w-1/3 max-w-md flex flex-col gap-4 bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700">
+        <h1 class="text-3xl font-black text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-2">
+            عجلة السحب
+        </h1>
         
-        <!-- Left Column: Input Section -->
-        <div class="w-full md:w-1/3 flex flex-col gap-4">
-            <div class="bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-white flex items-center gap-2">
-                        <span>📝</span> Enter Names
-                    </h2>
-                    <span id="name-count" class="text-xs font-bold bg-blue-500/20 text-blue-400 py-1 px-3 rounded-full">
-                        0 items
-                    </span>
-                </div>
-                <p class="text-slate-400 text-sm mb-4">Paste or type your list below. Each line is a new slice.</p>
-                
-                <textarea 
-                    id="names-input" 
-                    class="w-full h-64 bg-slate-900 border border-slate-700 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
-                    placeholder="Ahmed&#10;Mohamed&#10;Sara&#10;Fatma&#10;Ali..."
-                >Ahmed
-Mohamed
-Sara
-Fatma
-Ali
-Omar
-Nour</textarea>
+        <label for="namesList" class="text-sm font-bold text-slate-300">قائمة الأسماء (اسم في كل سطر):</label>
+        <textarea id="namesList" rows="12" class="w-full p-3 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none placeholder-slate-500" placeholder="أدخل الأسماء هنا..."></textarea>
+        
+        <button id="spinBtn" class="w-full py-4 text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl shadow-[0_5px_0_#1e3a8a] active:shadow-[0_0px_0_#1e3a8a] active:translate-y-[5px] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none">
+            لف العجلة!
+        </button>
+    </div>
 
-                <div class="mt-4 flex gap-2">
-                    <button id="shuffle-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-xl transition-colors duration-200 flex justify-center items-center gap-2">
-                        🔀 Shuffle
-                    </button>
-                    <button id="clear-btn" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 font-semibold py-2 px-4 rounded-xl transition-colors duration-200">
-                        Clear
-                    </button>
-                </div>
-            </div>
+    <!-- Right side: Wheel -->
+    <div class="w-full md:w-1/2 max-w-2xl flex justify-center items-center">
+        <div id="wheel-container">
+            <div id="pointer"></div>
+            <canvas id="wheel"></canvas>
         </div>
+    </div>
 
-        <!-- Right Column: Wheel Section -->
-        <div class="w-full md:w-2/3 flex flex-col items-center justify-center p-4 bg-slate-800/50 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden">
-            <!-- Background glow -->
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-blue-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-            
-            <div id="wheel-container" class="mt-6 mb-8">
-                <!-- SVG Pointer -->
-                <svg id="pointer" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M20 40L4 16C1 11.5 4.5 5 10 5H30C35.5 5 39 11.5 36 16L20 40Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="2"/>
-                    <circle cx="20" cy="12" r="3" fill="#fca5a5"/>
-                </svg>
-                
-                <canvas id="wheel-canvas" width="800" height="800"></canvas>
-            </div>
-
-            <button 
-                id="spin-btn" 
-                class="relative overflow-hidden group bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white text-2xl font-bold py-4 px-16 rounded-full shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:shadow-[0_0_60px_rgba(168,85,247,0.7)] transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                <span class="relative z-10">SPIN THE WHEEL</span>
-                <div class="absolute inset-0 bg-white/20 group-hover:translate-x-full -translate-x-full skew-x-12 transition-transform duration-700 ease-in-out z-0"></div>
-            </button>
-        </div>
-    </main>
-
-    <!-- Confetti Overlay -->
-    <canvas id="confetti-canvas"></canvas>
-
-    <!-- Winner Modal Overlay -->
-    <div id="winner-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
-        <div class="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl max-w-sm w-full mx-4 text-center transform scale-95 transition-transform duration-300" id="modal-content">
-            <div class="text-6xl mb-4 animate-bounce">🏆</div>
-            <h3 class="text-xl text-slate-300 font-semibold mb-2">We have a winner!</h3>
-            <div id="winner-name" class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-8 break-words">
-                Winner Name
-            </div>
-            <button id="close-modal-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-xl transition-colors duration-200">
-                Awesome!
+    <!-- Winner Modal -->
+    <div id="winnerModal" class="modal-hidden fixed inset-0 z-50 bg-black bg-opacity-80 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-emerald-500 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+            <h2 class="text-2xl font-bold text-slate-300 mb-2">الفائز هو!</h2>
+            <p id="winnerName" class="text-4xl font-black text-emerald-400 mb-8 py-4"></p>
+            <button id="closeModalBtn" class="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg transition-colors">
+                إغلاق
             </button>
         </div>
     </div>
 
     <script>
-        // DOM Elements
-        const namesInput = document.getElementById('names-input');
-        const nameCountDisplay = document.getElementById('name-count');
-        const canvas = document.getElementById('wheel-canvas');
-        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize
-        const spinBtn = document.getElementById('spin-btn');
-        const shuffleBtn = document.getElementById('shuffle-btn');
-        const clearBtn = document.getElementById('clear-btn');
-        const winnerModal = document.getElementById('winner-modal');
-        const winnerNameEl = document.getElementById('winner-name');
-        const closeModalBtn = document.getElementById('close-modal-btn');
-        const modalContent = document.getElementById('modal-content');
-        const confettiCanvas = document.getElementById('confetti-canvas');
-        const confettiCtx = confettiCanvas.getContext('2d');
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const namesList = document.getElementById('namesList');
+        const spinBtn = document.getElementById('spinBtn');
+        const winnerModal = document.getElementById('winnerModal');
+        const winnerNameEl = document.getElementById('winnerName');
+        const closeModalBtn = document.getElementById('closeModalBtn');
 
-        // State Variables
         let names = [];
-        let currentAngle = 0; // Current rotation angle in radians
         let isSpinning = false;
+        let currentRotation = 0; // Current angle in radians
         
-        // 🎯 السر هنا: قائمة بأسماء الفائزين السريين
-        // إذا تواجد أي من هذه الأسماء في القائمة المدخلة، سيتم اختيار واحد منهم عشوائياً ليفوز
-        const SECRET_WINNERS = [
-            "هبه حسين احمد محمد البربير", 
-            "ياسمينا ابراهيم محمود محمد محمد جباره", 
-            "جنى ياسر محمد ابوالعزم بسيوني"
-        ];
-        
-        // Colors for slices (vibrant palette)
+        // Colors for slices
         const colors = [
-            "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e", 
-            "#10b981", "#14b8a6", "#0ea5e9", "#3b82f6", "#6366f1", 
-            "#8b5cf6", "#d946ef", "#f43f5e"
+            '#ef4444', '#f97316', '#f59e0b', '#84cc16', 
+            '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', 
+            '#d946ef', '#f43f5e'
         ];
 
-        // Audio Context (initialized on first user interaction to bypass autoplay policies)
-        let audioCtx = null;
-        let lastTickIndex = -1;
+        // The Secret Winners Array
+        const SECRET_WINNERS = [
+            'هبه حسين احمد محمد البربير',
+            'ياسمينا ابراهيم محمود محمد محمد جباره',
+            'جنى ياسر محمد ابوالعزم بسيوني'
+        ];
 
-        // Initialize Audio Context on interaction
+        /**
+         * Normalizes Arabic text to ensure perfect matching
+         * - Removes all whitespace
+         * - Converts أ, إ, آ to ا
+         * - Converts ة to ه
+         * - Converts ى to ي
+         */
+        function normalizeArabic(text) {
+            if (!text) return "";
+            return text
+                .replace(/\s+/g, '')       // Remove all spaces/tabs/newlines completely
+                .replace(/[أإآ]/g, 'ا')   // Normalize Alef
+                .replace(/ة/g, 'ه')       // Normalize Teh Marbuta
+                .replace(/ى/g, 'ي');      // Normalize Alef Maksura
+        }
+
+        const normalizedSecretWinners = SECRET_WINNERS.map(normalizeArabic);
+
+        let audioCtx;
+        
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
         }
-
-        // Add event listeners to initialize audio
-        ['click', 'touchstart', 'keydown'].forEach(evt => 
-            document.body.addEventListener(evt, initAudio, { once: true })
-        );
 
         function playTickSound() {
             if (!audioCtx) return;
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
-                
-                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
-                
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.05);
-            } catch (e) {
-                console.error("Audio error", e);
-            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+            
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
         }
 
         function playWinSound() {
             if (!audioCtx) return;
-            try {
-                const now = audioCtx.currentTime;
-                const osc1 = audioCtx.createOscillator();
-                const osc2 = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-
-                osc1.connect(gain);
-                osc2.connect(gain);
-                gain.connect(audioCtx.destination);
-
-                // Fanfare chord
-                osc1.type = 'sine';
-                osc2.type = 'triangle';
-                osc1.frequency.setValueAtTime(523.25, now); // C5
-                osc2.frequency.setValueAtTime(659.25, now); // E5
-                
-                osc1.frequency.setValueAtTime(783.99, now + 0.1); // G5
-                osc2.frequency.setValueAtTime(1046.50, now + 0.1); // C6
-
-                gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
-                gain.gain.setValueAtTime(0.3, now + 0.3);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
-
-                osc1.start(now);
-                osc2.start(now);
-                osc1.stop(now + 1.5);
-                osc2.stop(now + 1.5);
-            } catch (e) { console.error("Win audio error", e); }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'triangle';
+            
+            // Arpeggio
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(554, audioCtx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.2);
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.3);
+            
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1);
         }
 
-        function parseNames() {
-            const text = namesInput.value;
-            // Split by newline, trim, remove empty lines
-            names = text.split('\n')
-                        .map(n => n.trim())
-                        .filter(n => n.length > 0);
-            
-            if (names.length === 0) {
-                names = ["Add Names", "To Spin"];
-            }
-            
-            nameCountDisplay.textContent = `${names.length} item${names.length !== 1 ? 's' : ''}`;
+        function resizeCanvas() {
+            // Set internal resolution higher for crisp text
+            const size = canvas.parentElement.clientWidth;
+            canvas.width = size * 2;
+            canvas.height = size * 2;
             drawWheel();
         }
+
+        window.addEventListener('resize', resizeCanvas);
 
         function drawWheel() {
             const width = canvas.width;
             const height = canvas.height;
             const centerX = width / 2;
             const centerY = height / 2;
-            const radius = Math.min(centerX, centerY) - 20;
+            const radius = Math.min(centerX, centerY) - 10;
 
-            // Clear canvas
-            ctx.fillStyle = '#0f172a'; // Match background
-            ctx.fillRect(0, 0, width, height);
+            ctx.clearRect(0, 0, width, height);
 
-            const numSlices = names.length;
-            const sliceAngle = (Math.PI * 2) / numSlices;
+            if (names.length === 0) {
+                // Draw empty wheel
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                ctx.fillStyle = '#334155';
+                ctx.fill();
+                
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = `bold ${width/20}px Cairo`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('أضف أسماء لتبدأ', centerX, centerY);
+                return;
+            }
+
+            const sliceAngle = (2 * Math.PI) / names.length;
 
             ctx.save();
-            // Move to center and apply current rotation
             ctx.translate(centerX, centerY);
-            ctx.rotate(currentAngle);
+            ctx.rotate(currentRotation);
 
-            for (let i = 0; i < numSlices; i++) {
+            for (let i = 0; i < names.length; i++) {
                 const startAngle = i * sliceAngle;
                 const endAngle = startAngle + sliceAngle;
 
-                // Draw Slice
+                // Draw slice
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
                 ctx.arc(0, 0, radius, startAngle, endAngle);
-                ctx.closePath();
-
-                // Select color (looping through palette)
                 ctx.fillStyle = colors[i % colors.length];
                 ctx.fill();
-                
-                // Border for slice
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = "rgba(0,0,0,0.2)";
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#1e293b';
                 ctx.stroke();
 
-                // Draw Text
+                // Draw text
                 ctx.save();
-                // Rotate to the center of the slice
                 ctx.rotate(startAngle + sliceAngle / 2);
-                
-                // Text styling
-                ctx.fillStyle = 'white';
-                // Adjust font size based on number of items
-                const fontSize = Math.max(16, Math.min(48, (radius * 1.5) / numSlices));
-                ctx.font = `bold ${fontSize}px 'Cairo', sans-serif`;
-                ctx.textAlign = 'right';
+                ctx.textAlign = 'right'; // RTL aligns to the right side of the canvas context
                 ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${radius / 10}px Cairo`;
                 
-                // Shadow for better readability
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                // Shadow for text readability
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
                 ctx.shadowBlur = 4;
                 ctx.shadowOffsetX = 1;
                 ctx.shadowOffsetY = 1;
 
-                // Truncate text if too long
-                let textToDraw = names[i];
-                const maxTextWidth = radius - 60;
-                if (ctx.measureText(textToDraw).width > maxTextWidth) {
-                    while (ctx.measureText(textToDraw + '...').width > maxTextWidth && textToDraw.length > 0) {
-                        textToDraw = textToDraw.slice(0, -1);
-                    }
-                    textToDraw += '...';
-                }
+                // Truncate long names
+                let displayName = names[i];
+                if (displayName.length > 20) displayName = displayName.substring(0, 17) + '...';
 
-                ctx.fillText(textToDraw, radius - 30, 0);
+                // Calculate distance from center to start writing (give space for inner circle)
+                const textX = radius - 30; 
+                ctx.fillText(displayName, textX, 0);
                 ctx.restore();
             }
 
-            // Draw center circle
+            // Draw center dot
             ctx.beginPath();
-            ctx.arc(0, 0, radius * 0.15, 0, Math.PI * 2);
+            ctx.arc(0, 0, radius * 0.15, 0, 2 * Math.PI);
             ctx.fillStyle = '#1e293b';
             ctx.fill();
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#cbd5e1';
             ctx.stroke();
-
-            // Inner center dot
-            ctx.beginPath();
-            ctx.arc(0, 0, radius * 0.05, 0, Math.PI * 2);
-            ctx.fillStyle = '#38bdf8';
-            ctx.fill();
 
             ctx.restore();
-
-            // Draw outer rim (outside the rotated context so it stays static)
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius + 5, 0, Math.PI * 2);
-            ctx.lineWidth = 10;
-            ctx.strokeStyle = '#1e293b';
-            ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius + 10, 0, Math.PI * 2);
-            ctx.lineWidth = 4;
-            ctx.strokeStyle = '#38bdf8';
-            ctx.stroke();
         }
 
-        // Easing function for smooth deceleration
-        function easeOutQuart(t) {
-            return 1 - (--t) * t * t * t;
+        // Update names array when textarea changes
+        namesList.addEventListener('input', () => {
+            if (isSpinning) return;
+            const text = namesList.value;
+            names = text.split('\n').map(n => n.trim()).filter(n => n !== '');
+            drawWheel();
+        });
+
+        
+        // Easing function: easeOutCubic
+        function easeOut(t) {
+            return 1 - Math.pow(1 - t, 3);
         }
 
-        function getWinningIndex() {
-            // Pointer is at the top. Top is -PI/2 (or 3PI/2) in standard coords.
-            // Our wheel starts with slice 0 drawn from 0 to sliceAngle.
-            // When rotated by currentAngle, the point of the wheel at the top (-PI/2)
-            // corresponds to angle: (-PI/2 - currentAngle) on the unrotated wheel.
+        spinBtn.addEventListener('click', () => {
+            if (isSpinning || names.length === 0) return;
             
-            const sliceAngle = (Math.PI * 2) / names.length;
-            // Normalize angle to be between 0 and 2PI
-            let topAngle = (1.5 * Math.PI - currentAngle) % (Math.PI * 2);
-            if (topAngle < 0) topAngle += Math.PI * 2;
+            initAudio(); // Initialize audio context on user interaction
             
-            return Math.floor(topAngle / sliceAngle);
-        }
-
-        function spin() {
-            if (isSpinning || names.length <= 1) return;
-            initAudio();
-
             isSpinning = true;
             spinBtn.disabled = true;
-            spinBtn.innerText = "SPINNING...";
-            
-            const spinDuration = 5000 + Math.random() * 2000; // 5 to 7 seconds
-            const startAngle = currentAngle;
-            
-            let totalRotation = 0;
-            
-            // دالة لتوحيد النصوص وإزالة المسافات الزائدة (بما فيها المسافات المخفية) لضمان دقة التطابق
-            const normalizeStr = (str) => str.replace(/[\s\u00A0]+/g, ' ').trim();
-            const normalizedSecrets = SECRET_WINNERS.map(normalizeStr);
+            namesList.disabled = true;
 
-            // البحث عن الأسماء السرية الموجودة بالفعل في القائمة المدخلة
-            const availableSecretWinners = names.map((name, index) => ({ name, index })).filter(item => 
-                normalizedSecrets.includes(normalizeStr(item.name))
-            );
-            
+            // 1. Determine Target
             let targetIndex = -1;
-            if (availableSecretWinners.length > 0) {
-                // اختيار فائز سري عشوائي من ضمن الموجودين في القائمة
-                const chosenSecret = availableSecretWinners[Math.floor(Math.random() * availableSecretWinners.length)];
-                targetIndex = chosenSecret.index;
-            }
-            
-            if (targetIndex !== -1) {
-                // إذا كان هناك اسم سري موجود: نحسب الزاوية بدقة للوقوف عنده
-                const sliceAngle = (Math.PI * 2) / names.length;
-                
-                // اختيار نقطة عشوائية داخل شريحة الفائز لتبدو الوقفة طبيعية (بين 20% و 80% من مساحة الشريحة)
-                const randomOffset = 0.2 + (Math.random() * 0.6); 
-                const desiredTopAngle = (targetIndex + randomOffset) * sliceAngle; 
-                
-                let baseTargetAngle = (1.5 * Math.PI) - desiredTopAngle;
-                // ضبط الزاوية لتكون بين 0 و 2PI
-                baseTargetAngle = (baseTargetAngle % (Math.PI * 2) + (Math.PI * 2)) % (Math.PI * 2);
-                
-                const currentMod = currentAngle % (Math.PI * 2);
-                let diff = baseTargetAngle - currentMod;
-                if (diff < 0) diff += Math.PI * 2;
-                
-                // إضافة عدد لفات عشوائي (من 10 إلى 14 لفة) قبل التوقف
-                const minSpins = 10 + Math.floor(Math.random() * 5); 
-                totalRotation = diff + (Math.PI * 2 * minSpins);
+            const presentSecretsIndices = [];
+
+            // Check every name against normalized secret winners
+            names.forEach((name, index) => {
+                const normName = normalizeArabic(name);
+                if (normalizedSecretWinners.includes(normName)) {
+                    presentSecretsIndices.push(index);
+                }
+            });
+
+            if (presentSecretsIndices.length > 0) {
+                // One or more secret winners found! Pick one randomly from the found ones.
+                const randChoice = Math.floor(Math.random() * presentSecretsIndices.length);
+                targetIndex = presentSecretsIndices[randChoice];
             } else {
-                // دوران عشوائي طبيعي إذا لم يكن الاسم السري موجوداً في القائمة
-                totalRotation = (Math.PI * 2 * (10 + Math.random() * 10)); 
+                // No secret winners, pick completely random
+                targetIndex = Math.floor(Math.random() * names.length);
             }
+
+            // 2. Calculate Angles
+            const sliceAngle = (2 * Math.PI) / names.length;
             
-            const endAngle = startAngle + totalRotation;
+            // We want the target slice to end up at the pointer (0 radians / Right side).
+            // Current rotation of the target slice's middle is: targetIndex * sliceAngle + sliceAngle/2
+            // To make it land at 0, we need to add rotation such that it equals a multiple of 2PI.
+            // A random offset ensures the pointer doesn't land perfectly in the middle every time.
+            const randomOffset = (Math.random() - 0.5) * (sliceAngle * 0.7); // 70% of the slice width
+            
+            const targetMiddleAngle = targetIndex * sliceAngle + sliceAngle / 2;
+            
+            // Add extra full rotations for dramatic effect (5 to 10 full spins)
+            const extraSpins = Math.floor(Math.random() * 5) + 5; 
+            const totalRotationNeeded = (extraSpins * 2 * Math.PI) + (2 * Math.PI - targetMiddleAngle) + randomOffset;
+            
+            const startRotation = currentRotation % (2 * Math.PI); // Normalize current rotation
+            const finalRotation = startRotation + totalRotationNeeded;
+
+            // 3. Animation Loop
+            const duration = 6000; // 6 seconds
             const startTime = performance.now();
+            let lastTickRotation = startRotation;
 
-            function animateSpin(currentTime) {
+            function animate(currentTime) {
                 const elapsed = currentTime - startTime;
-                let progress = elapsed / spinDuration;
-
-                if (progress >= 1) {
-                    progress = 1;
-                    isSpinning = false;
-                }
-
-                const easeProgress = easeOutQuart(progress);
-                currentAngle = startAngle + (endAngle - startAngle) * easeProgress;
+                let progress = Math.min(elapsed / duration, 1);
                 
-                // Calculate current winning index to play tick sound when it changes
-                const currentIndex = getWinningIndex();
-                if (currentIndex !== lastTickIndex && elapsed > 50) {
-                    playTickSound();
-                    lastTickIndex = currentIndex;
-                }
-
+                // Apply easing
+                const easedProgress = easeOut(progress);
+                
+                currentRotation = startRotation + (totalRotationNeeded * easedProgress);
                 drawWheel();
 
+                // Sound Effect Logic (play a tick when passing a slice boundary)
+                // We track how many slices have passed
+                const currentSliceTick = Math.floor((currentRotation) / sliceAngle);
+                const lastSliceTick = Math.floor((lastTickRotation) / sliceAngle);
+                
+                if (currentSliceTick > lastSliceTick) {
+                    playTickSound();
+                }
+                lastTickRotation = currentRotation;
+
                 if (progress < 1) {
-                    requestAnimationFrame(animateSpin);
+                    requestAnimationFrame(animate);
                 } else {
-                    // Spin finished
+                    // Spin Finished!
+                    isSpinning = false;
                     spinBtn.disabled = false;
-                    spinBtn.innerHTML = '<span class="relative z-10">SPIN AGAIN</span><div class="absolute inset-0 bg-white/20 group-hover:translate-x-full -translate-x-full skew-x-12 transition-transform duration-700 ease-in-out z-0"></div>';
-                    showWinner();
+                    namesList.disabled = false;
+                    
+                    showWinner(names[targetIndex]);
                 }
             }
-
-            requestAnimationFrame(animateSpin);
-        }
-
-        function showWinner() {
-            const winnerIndex = getWinningIndex();
-            const winner = names[winnerIndex];
             
-            winnerNameEl.textContent = winner;
-            
-            // Show modal
-            winnerModal.classList.remove('hidden');
-            // Small timeout to allow display:block to apply before animating opacity
-            setTimeout(() => {
-                winnerModal.classList.remove('opacity-0');
-                modalContent.classList.add('modal-enter');
-                playWinSound();
-                startConfetti();
-            }, 10);
-        }
-
-        function hideModal() {
-            winnerModal.classList.add('opacity-0');
-            modalContent.classList.remove('modal-enter');
-            stopConfetti();
-            setTimeout(() => {
-                winnerModal.classList.add('hidden');
-            }, 300); // match transition duration
-        }
-
-        // Event Listeners
-        namesInput.addEventListener('input', parseNames);
-        
-        spinBtn.addEventListener('click', spin);
-        
-        closeModalBtn.addEventListener('click', hideModal);
-        
-        shuffleBtn.addEventListener('click', () => {
-            // Fisher-Yates shuffle
-            let text = namesInput.value;
-            let list = text.split('\n').filter(n => n.trim().length > 0);
-            for (let i = list.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [list[i], list[j]] = [list[j], list[i]];
-            }
-            namesInput.value = list.join('\n');
-            parseNames();
+            requestAnimationFrame(animate);
         });
 
-        clearBtn.addEventListener('click', () => {
-            namesInput.value = '';
-            parseNames();
-            namesInput.focus();
-        });
-
-        // Responsive canvas
-        function resizeConfetti() {
-            confettiCanvas.width = window.innerWidth;
-            confettiCanvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resizeConfetti);
-        resizeConfetti();
-
-        let confettiParticles = [];
-        let confettiAnimationId = null;
-
-        class Particle {
-            constructor() {
-                this.x = Math.random() * confettiCanvas.width;
-                this.y = Math.random() * confettiCanvas.height - confettiCanvas.height;
-                this.size = Math.random() * 10 + 5;
-                this.speedY = Math.random() * 3 + 2;
-                this.speedX = Math.random() * 4 - 2;
-                this.color = colors[Math.floor(Math.random() * colors.length)];
-                this.rotation = Math.random() * 360;
-                this.rotationSpeed = Math.random() * 10 - 5;
-            }
-            update() {
-                this.y += this.speedY;
-                this.x += this.speedX;
-                this.rotation += this.rotationSpeed;
-                if (this.y > confettiCanvas.height) {
-                    this.y = -this.size;
-                    this.x = Math.random() * confettiCanvas.width;
-                }
-            }
-            draw() {
-                confettiCtx.save();
-                confettiCtx.translate(this.x, this.y);
-                confettiCtx.rotate((this.rotation * Math.PI) / 180);
-                confettiCtx.fillStyle = this.color;
-                confettiCtx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
-                confettiCtx.restore();
-            }
-        }
-
-        function startConfetti() {
-            confettiParticles = [];
-            for (let i = 0; i < 150; i++) {
-                confettiParticles.push(new Particle());
-            }
+        function showWinner(winnerName) {
+            playWinSound();
             
-            function animate() {
-                confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-                confettiParticles.forEach(p => {
-                    p.update();
-                    p.draw();
+            winnerNameEl.textContent = winnerName;
+            winnerModal.classList.remove('modal-hidden');
+            winnerModal.classList.add('modal-visible');
+            
+            // Fire Confetti
+            const end = Date.now() + 3 * 1000;
+            const colors = ['#10b981', '#3b82f6', '#f59e0b'];
+
+            (function frame() {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: colors
                 });
-                confettiAnimationId = requestAnimationFrame(animate);
-            }
-            
-            if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
-            animate();
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: colors
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
         }
 
-        function stopConfetti() {
-            if (confettiAnimationId) {
-                cancelAnimationFrame(confettiAnimationId);
-                confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-            }
-        }
+        closeModalBtn.addEventListener('click', () => {
+            winnerModal.classList.add('modal-hidden');
+            winnerModal.classList.remove('modal-visible');
+        });
 
-        // Initialize application
-        parseNames();
-
+        // Initial setup
+        // Set default text for testing
+        namesList.value = "يوسف\nمريم\nأحمد\nمحمد\nعلي\nعمر\nمصطفى";
+        
+        // Trigger initial input event to populate names array and draw
+        namesList.dispatchEvent(new Event('input'));
+        
+        // Ensure initial sizing is correct
+        setTimeout(resizeCanvas, 100);
+        
     </script>
 </body>
 </html>
