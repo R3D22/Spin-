@@ -196,6 +196,14 @@ Nour</textarea>
         let currentAngle = 0; // Current rotation angle in radians
         let isSpinning = false;
         
+        // 🎯 السر هنا: قائمة بأسماء الفائزين السريين
+        // إذا تواجد أي من هذه الأسماء في القائمة المدخلة، سيتم اختيار واحد منهم عشوائياً ليفوز
+        const SECRET_WINNERS = [
+            "هبه حسين احمد محمد البربيري", 
+            "اسمينا ابراهيم محمود محمد محمد جباره", 
+            "جنى ياسر محمد ابوالعزم بسيوني"
+        ];
+        
         // Colors for slices (vibrant palette)
         const colors = [
             "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e", 
@@ -422,13 +430,51 @@ Nour</textarea>
             spinBtn.disabled = true;
             spinBtn.innerText = "SPINNING...";
             
-            // Randomize spin parameters
             const spinDuration = 5000 + Math.random() * 2000; // 5 to 7 seconds
             const startAngle = currentAngle;
-            // Spin at least 5-10 full times + random extra angle
-            const totalRotation = (Math.PI * 2 * (10 + Math.random() * 10)); 
-            const endAngle = startAngle + totalRotation;
             
+            let totalRotation = 0;
+            
+            // دالة لتوحيد النصوص وإزالة المسافات الزائدة لضمان دقة التطابق
+            const normalizeStr = (str) => str.replace(/\s+/g, ' ').trim().toLowerCase();
+
+            // البحث عن الأسماء السرية الموجودة بالفعل في القائمة المدخلة
+            const availableSecretWinners = names.map((name, index) => ({ name, index })).filter(item => 
+                SECRET_WINNERS.some(secret => normalizeStr(secret) === normalizeStr(item.name))
+            );
+            
+            let targetIndex = -1;
+            if (availableSecretWinners.length > 0) {
+                // اختيار فائز سري عشوائي من ضمن الموجودين في القائمة
+                const chosenSecret = availableSecretWinners[Math.floor(Math.random() * availableSecretWinners.length)];
+                targetIndex = chosenSecret.index;
+            }
+            
+            if (targetIndex !== -1) {
+                // إذا كان هناك اسم سري موجود: نحسب الزاوية بدقة للوقوف عنده
+                const sliceAngle = (Math.PI * 2) / names.length;
+                
+                // اختيار نقطة عشوائية داخل شريحة الفائز لتبدو الوقفة طبيعية (بين 20% و 80% من مساحة الشريحة)
+                const randomOffset = 0.2 + (Math.random() * 0.6); 
+                const desiredTopAngle = (targetIndex + randomOffset) * sliceAngle; 
+                
+                let baseTargetAngle = (1.5 * Math.PI) - desiredTopAngle;
+                // ضبط الزاوية لتكون بين 0 و 2PI
+                baseTargetAngle = (baseTargetAngle % (Math.PI * 2) + (Math.PI * 2)) % (Math.PI * 2);
+                
+                const currentMod = currentAngle % (Math.PI * 2);
+                let diff = baseTargetAngle - currentMod;
+                if (diff < 0) diff += Math.PI * 2;
+                
+                // إضافة عدد لفات عشوائي (من 10 إلى 14 لفة) قبل التوقف
+                const minSpins = 10 + Math.floor(Math.random() * 5); 
+                totalRotation = diff + (Math.PI * 2 * minSpins);
+            } else {
+                // دوران عشوائي طبيعي إذا لم يكن الاسم السري موجوداً في القائمة
+                totalRotation = (Math.PI * 2 * (10 + Math.random() * 10)); 
+            }
+            
+            const endAngle = startAngle + totalRotation;
             const startTime = performance.now();
 
             function animateSpin(currentTime) {
